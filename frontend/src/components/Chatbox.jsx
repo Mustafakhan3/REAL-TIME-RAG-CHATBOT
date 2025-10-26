@@ -178,85 +178,90 @@ function Chatbox() {
       setDeletingId(null);
     }
   };
+const handleSend = async () => {
+  if (!input.trim() || !uid || !activeChatId) return;
+  const text = input.trim();
+  setInput("");
+  setLoading(true);
 
-  // ---- Send with memory ----
-  const handleSend = async () => {
-    if (!input.trim() || !uid || !activeChatId) return;
-    const text = input.trim();
-    setInput("");
-    setLoading(true);
+  const el = scrollRef.current;
+  const follow = atBottom(el);
+  setAutoScroll(follow);
+  autoScrollRef.current = follow;
 
-    const el = scrollRef.current;
-    const follow = atBottom(el);
-    setAutoScroll(follow);
-    autoScrollRef.current = follow;
+  await addDoc(collection(db, "users", uid, "chats", activeChatId, "messages"), {
+    role: "user",
+    content: text,
+    createdAt: serverTimestamp(),
+  });
 
+  const isFirst = messages.length === 0;
+  await updateDoc(doc(db, "users", uid, "chats", activeChatId), {
+    ...(isFirst ? { title: titleFrom(text) } : {}),
+    lastMessage: "",
+    updatedAt: serverTimestamp(),
+  });
+
+  try {
+    const history = buildHistory(messages, text);
+
+    const res = await axios.post(`${API_BASE}/api/chat`, {
+      message: text,
+      userId: uid,
+      history,
+    });
+
+    const fullReply = res.data.reply || "No response received.";
+    const respSources = Array.isArray(res.data.sources) ? res.data.sources : [];
+
+    // streaming typing effect
+    setIsStreaming(true);
+    setStreamText("");
+    const chunkSize = 4;
+    const tickMs = 18;
+    let i = 0;
+    await new Promise((resolve) => {
+      const timer = setInterval(() => {
+        i += chunkSize;
+        const next = fullReply.slice(0, i);
+        setStreamText(next);
+        if (autoScrollRef.current) smartScrollToBottom("auto");
+        if (i >= fullReply.length) {
+          clearInterval(timer);
+          resolve();
+        }
+      }, tickMs);
+    });
+
+    // ✅ stop streaming FIRST so only the Firestore message renders
+    setIsStreaming(false);
+    setStreamText("");
+
+    // now persist assistant message (snapshot will render it once)
     await addDoc(collection(db, "users", uid, "chats", activeChatId, "messages"), {
-      role: "user",
-      content: text,
+      role: "assistant",
+      content: fullReply,
+      sources: respSources,
       createdAt: serverTimestamp(),
     });
 
-    const isFirst = messages.length === 0;
     await updateDoc(doc(db, "users", uid, "chats", activeChatId), {
-      ...(isFirst ? { title: titleFrom(text) } : {}),
       lastMessage: "",
       updatedAt: serverTimestamp(),
     });
 
-    try {
-      const history = buildHistory(messages, text);
+    setLoading(false);
+    smartScrollToBottom("smooth");
+  } catch (err) {
+    console.error("❌ Backend error:", err?.message || err);
+    setIsStreaming(false);
+    setStreamText("");
+    setLoading(false);
+  }
+};
 
-      // 👇 CHANGED: use API_BASE instead of hardcoded localhost
-      const res = await axios.post(`${API_BASE}/api/chat`, {
-        message: text,
-        userId: uid,
-        history,
-      });
-
-      const fullReply = res.data.reply || "No response received.";
-      const respSources = Array.isArray(res.data.sources) ? res.data.sources : [];
-      setIsStreaming(true);
-      setStreamText("");
-      const chunkSize = 4;
-      const tickMs = 18;
-      let i = 0;
-      await new Promise((resolve) => {
-        const timer = setInterval(() => {
-          i += chunkSize;
-          const next = fullReply.slice(0, i);
-          setStreamText(next);
-          if (autoScrollRef.current) smartScrollToBottom("auto");
-          if (i >= fullReply.length) {
-            clearInterval(timer);
-            resolve();
-          }
-        }, tickMs);
-      });
-
-      await addDoc(collection(db, "users", uid, "chats", activeChatId, "messages"), {
-        role: "assistant",
-        content: fullReply,
-        sources: respSources,
-        createdAt: serverTimestamp(),
-      });
-
-      await updateDoc(doc(db, "users", uid, "chats", activeChatId), {
-        lastMessage: "",
-        updatedAt: serverTimestamp(),
-      });
-
-      setIsStreaming(false);
-      setStreamText("");
-      setLoading(false);
-      smartScrollToBottom("smooth");
-    } catch (err) {
-      console.error("❌ Backend error:", err?.message || err);
-      setIsStreaming(false);
-      setStreamText("");
-      setLoading(false);
-    }
-  };
+  // ---- Send with memory ----
+ 
   return (
     <div className="flex h-screen min-h-0 bg-zinc-950 text-white overflow-hidden relative">
       {/* Sidebar */}
@@ -321,9 +326,11 @@ function Chatbox() {
 
         {/* Scroll area */}
         <div
-          ref={scrollRef}
-          className="chat-scroll w-full max-w-4xl flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-3 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl relative"
-        >
+  ref={scrollRef}
+  className="chat-scroll w-full max-w-4xl flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 py-4 space-y-3 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl relative"
+>
+
+        
           {messages.length === 0 ? (
             <div className="text-center text-zinc-500 mt-10 text-sm sm:text-base">
               Start a conversation...
