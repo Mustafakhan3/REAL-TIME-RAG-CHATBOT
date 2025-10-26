@@ -19,6 +19,9 @@ import {
   updateDoc,
 } from "firebase/firestore";
 
+// 👇 NEW: pick API base from env (Netlify) or fall back to localhost (your local dev)
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
+
 function Chatbox() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -59,7 +62,6 @@ function Chatbox() {
   const MAX_CHARS = 6000;
 
   function toChatMessages(msgs) {
-    // Expecting msgs from Firestore: {role: 'user'|'assistant', content: string}
     return msgs.map((m) => ({
       role: m.role === "user" ? "user" : "assistant",
       content: m.content ?? "",
@@ -184,20 +186,17 @@ function Chatbox() {
     setInput("");
     setLoading(true);
 
-    // only follow if at bottom
     const el = scrollRef.current;
     const follow = atBottom(el);
     setAutoScroll(follow);
     autoScrollRef.current = follow;
 
-    // persist user message
     await addDoc(collection(db, "users", uid, "chats", activeChatId, "messages"), {
       role: "user",
       content: text,
       createdAt: serverTimestamp(),
     });
 
-    // title on first message
     const isFirst = messages.length === 0;
     await updateDoc(doc(db, "users", uid, "chats", activeChatId), {
       ...(isFirst ? { title: titleFrom(text) } : {}),
@@ -206,15 +205,13 @@ function Chatbox() {
     });
 
     try {
-      // Build and send history
       const history = buildHistory(messages, text);
-      console.log("[client] history.len:", history.length);
-      console.log("[client] history.tail:", history.slice(-3));
 
-      const res = await axios.post("http://localhost:5000/api/chat", {
+      // 👇 CHANGED: use API_BASE instead of hardcoded localhost
+      const res = await axios.post(`${API_BASE}/api/chat`, {
         message: text,
         userId: uid,
-        history, // <-- send prior turns
+        history,
       });
 
       const fullReply = res.data.reply || "No response received.";
@@ -260,7 +257,6 @@ function Chatbox() {
       setLoading(false);
     }
   };
-
   return (
     <div className="flex h-screen min-h-0 bg-zinc-950 text-white overflow-hidden relative">
       {/* Sidebar */}
