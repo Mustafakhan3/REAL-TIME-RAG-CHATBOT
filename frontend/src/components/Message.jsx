@@ -6,23 +6,22 @@ function Message({ text, sender, sources = [] }) {
   // Bubble width (kept same for layout consistency)
  // Bubble width (cap to viewport on phones to prevent horizontal overflow)
 const bubbleMax = isUser
-  ? "max-w-[88vw] sm:max-w-[400px] md:max-w-[440px] xl:max-w-[500px]"
-  : "max-w-[88vw] sm:max-w-[440px] md:max-w-[480px] xl:max-w-[560px]";
+  ? "max-w-[94vw] sm:max-w-[420px] md:max-w-[460px] xl:max-w-[520px]"
+  : "max-w-[94vw] sm:max-w-[460px] md:max-w-[500px] xl:max-w-[580px]";
+
 
 
   return (
     <div className={`flex w-full ${isUser ? "justify-end" : "justify-start"}`}>
       <div className={`${bubbleMax}`}>
-        <div
-          className={`inline-block w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl shadow-sm
-          whitespace-pre-wrap break-words overflow-hidden text-ellipsis
-          text-[11.5px] sm:text-[12.5px] md:text-[12px] leading-relaxed
-          ${
-            isUser
-              ? "bg-indigo-600 text-white rounded-br-sm"
-              : "bg-zinc-800 text-zinc-100 rounded-bl-sm"
-          }`}
-        >
+       <div
+  className={`inline-block w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl shadow-sm
+  whitespace-pre-wrap break-words overflow-hidden text-ellipsis
+  text-[13px] sm:text-[13.5px] md:text-[14px] leading-relaxed
+  ${isUser ? "bg-indigo-600 text-white rounded-br-sm"
+           : "bg-zinc-800 text-zinc-100 rounded-bl-sm"}`}
+>
+
           <p className="whitespace-pre-wrap break-words">{text}</p>
 
           {/* 🔹 Sources (assistant only) */}

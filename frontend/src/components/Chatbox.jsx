@@ -263,7 +263,7 @@ const handleSend = async () => {
   // ---- Send with memory ----
  
   return (
-    <div className="flex h-screen min-h-0 bg-zinc-950 text-white overflow-hidden relative">
+<div className="flex h-screen min-h-0 bg-zinc-950 text-white w-full max-w-[100vw] overflow-hidden overflow-x-hidden relative">
       {/* Sidebar */}
       <div
         className={`fixed sm:static inset-y-0 left-0 z-40 w-40 sm:w-44 md:w-48 lg:w-52 bg-zinc-900 border-r border-zinc-800 p-4 transform transition-transform duration-300 ease-in-out
@@ -325,10 +325,11 @@ const handleSend = async () => {
         </div>
 
         {/* Scroll area */}
-        <div
-  ref={scrollRef}
-  className="chat-scroll w-full max-w-4xl flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 py-4 space-y-3 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl relative"
+        
+  <div ref={scrollRef}
+  className="chat-scroll w-full max-w-4xl flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 sm:px-3 py-4 space-y-3 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl relative"
 >
+
 
         
           {messages.length === 0 ? (
