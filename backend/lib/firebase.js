@@ -1,16 +1,22 @@
+// backend/lib/firebase.js
 import admin from 'firebase-admin';
-import dotenv from 'dotenv';
-import serviceAccount from '../config/serviceAccountKey.js';
 
-dotenv.config();
+// Build creds from environment variables set in Railway
+const serviceAccount = {
+  project_id: process.env.FIREBASE_PROJECT_ID,
+  client_email: process.env.FIREBASE_CLIENT_EMAIL,
+  // Turn the \n sequences back into real newlines
+  private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+};
 
-// Dynamic import for the service account JSON with the correct assertion
+// Initialize once
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+    // databaseURL is optional for Firestore; omit unless you actually need RTDB
+    // databaseURL: "https://rag-chatbot-d39eb.firebaseio.com",
+  });
+}
 
-// Initialize Firebase Admin SDK with service account credentials
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  databaseURL: "https://rag-chatbot-d39eb.firebaseio.com",  // Replace with your Firebase database URL
-});
-
-const db = admin.firestore(); // Initialize Firestore
-export { db };  // Export Firestore to use in routes
+export const db = admin.firestore();
+export default admin;
