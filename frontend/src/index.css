@@ -2,12 +2,14 @@
 
 /* --- Consistent typography across local & production --- */
 /* --- Normalize text size across Android/iOS (prod vs local) --- */
-html {
-    font-size: 16px !important;
-    /* keep base consistent */
-    -webkit-text-size-adjust: 100% !important;
-    text-size-adjust: 100% !important;
-}
+ html {
+     font-size: 16px;
+     /* removed !important */
+     -webkit-text-size-adjust: 100%;
+     /* removed !important */
+     text-size-adjust: 100%;
+     /* removed !important */
+ }
 
 body {
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial,

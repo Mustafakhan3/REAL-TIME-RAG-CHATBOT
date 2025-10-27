@@ -1,27 +1,33 @@
 @import "tailwindcss";
 
-/* --- Consistent typography across local & production --- */
-html {
-    font-size: 16px;
-    /* lock base to 16px so Tailwind rems are consistent */
-}
+ html {
+     font-size: 16px;
+     /* removed !important */
+     -webkit-text-size-adjust: 100%;
+     /* removed !important */
+     text-size-adjust: 100%;
+     /* removed !important */
+ }
 
 body {
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
         "Apple Color Emoji", "Segoe UI Emoji";
     font-size: 1rem;
-    /* equals 16px because html = 16px */
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
 }
 
-/* (optional) slightly larger on small screens; remove if you don't want this
-@media (max-width: 768px) {
-  html { font-size: 17px; }
+/* Kill any accidental page-level horizontal scroll in prod */
+html,
+body,
+#root {
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+    box-sizing: border-box;
 }
-*/
 
 /* --- your existing styles --- */
 .chat-scroll {
