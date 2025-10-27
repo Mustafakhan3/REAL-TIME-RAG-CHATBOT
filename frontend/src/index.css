@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+html.on-netlify {
+    zoom: 1.03;
+}
+
+/* ~3% visual nudge */
 /* Make base rules run after preflight */
 @layer base {
     html {
