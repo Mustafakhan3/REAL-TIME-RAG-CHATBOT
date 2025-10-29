@@ -1,10 +1,12 @@
 @import "tailwindcss";
 
 
-/* ~2–3% visual nudge only on Netlify origin */
+/* Netlify-only visual nudge */
 html.on-netlify {
-    font-size: 16.5px;
+    font-size: 16.6px !important;
 }
+
+/* try 16.6; if still small, try 16.7 */
 
 /* try 16.5; adjust to 16.4/16.6 if needed */
 
