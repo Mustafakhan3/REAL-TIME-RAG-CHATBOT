@@ -1,4 +1,3 @@
-// src/components/SignIn.jsx
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
@@ -17,27 +16,25 @@ export default function SignIn() {
     setError('');
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      console.log('User signed in successfully');
       navigate(from, { replace: true });
     } catch (err) {
       setError(err.message);
-      console.error('Error during sign in:', err);
     }
   };
 
   return (
-    <div className="flex items-center justify-center h-screen bg-gray-100">
-      <div className="bg-white p-8 rounded-lg shadow-lg w-96">
-        <h2 className="text-2xl font-semibold text-center text-gray-700 mb-6">Sign In</h2>
-        <form onSubmit={handleSignIn} className="space-y-4">
+    <div className="flex items-center justify-center min-h-screen bg-gray-100 px-4">
+      <div className="bg-white p-10 rounded-2xl shadow-xl w-full max-w-md xs:p-6 xs:max-w-sm">
+        <h2 className="text-3xl font-bold text-center text-gray-800 mb-8">
+          Sign In
+        </h2>
+        <form onSubmit={handleSignIn} className="space-y-6">
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Enter your email"
-            id="email"
-            name="email"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full px-5 py-3 border border-gray-300 text-lg rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
             required
           />
           <input
@@ -45,19 +42,22 @@ export default function SignIn() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Enter your password"
-            id="password"
-            name="password"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full px-5 py-3 border border-gray-300 text-lg rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
             required
           />
-          {error && <p className="text-red-500 text-sm">{error}</p>}
-          <button type="submit" className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700">
+          {error && <p className="text-red-500 text-base">{error}</p>}
+          <button
+            type="submit"
+            className="w-full bg-indigo-600 text-white py-3 text-lg font-semibold rounded-xl hover:bg-indigo-700 transition"
+          >
             Sign In
           </button>
         </form>
-        <p className="mt-4 text-center text-gray-600 text-sm">
+        <p className="mt-6 text-center text-gray-600 text-base">
           Don’t have an account?{' '}
-          <Link to="/signup" className="text-indigo-600 hover:underline">Sign Up</Link>
+          <Link to="/signup" className="text-indigo-600 hover:underline font-medium">
+            Sign Up
+          </Link>
         </p>
       </div>
     </div>

@@ -178,91 +178,92 @@ function Chatbox() {
       setDeletingId(null);
     }
   };
+const handleSend = async () => {
+  if (!input.trim() || !uid || !activeChatId) return;
+  const text = input.trim();
+  setInput("");
+  setLoading(true);
 
-  const handleSend = async () => {
-    if (!input.trim() || !uid || !activeChatId) return;
-    const text = input.trim();
-    setInput("");
-    setLoading(true);
+  const el = scrollRef.current;
+  const follow = atBottom(el);
+  setAutoScroll(follow);
+  autoScrollRef.current = follow;
 
-    const el = scrollRef.current;
-    const follow = atBottom(el);
-    setAutoScroll(follow);
-    autoScrollRef.current = follow;
+  await addDoc(collection(db, "users", uid, "chats", activeChatId, "messages"), {
+    role: "user",
+    content: text,
+    createdAt: serverTimestamp(),
+  });
 
+  const isFirst = messages.length === 0;
+  await updateDoc(doc(db, "users", uid, "chats", activeChatId), {
+    ...(isFirst ? { title: titleFrom(text) } : {}),
+    lastMessage: "",
+    updatedAt: serverTimestamp(),
+  });
+
+  try {
+    const history = buildHistory(messages, text);
+
+    const res = await axios.post(`${API_BASE}/api/chat`, {
+      message: text,
+      userId: uid,
+      history,
+    });
+
+    const fullReply = res.data.reply || "No response received.";
+    const respSources = Array.isArray(res.data.sources) ? res.data.sources : [];
+
+    // streaming typing effect
+    setIsStreaming(true);
+    setStreamText("");
+    const chunkSize = 4;
+    const tickMs = 18;
+    let i = 0;
+    await new Promise((resolve) => {
+      const timer = setInterval(() => {
+        i += chunkSize;
+        const next = fullReply.slice(0, i);
+        setStreamText(next);
+        if (autoScrollRef.current) smartScrollToBottom("auto");
+        if (i >= fullReply.length) {
+          clearInterval(timer);
+          resolve();
+        }
+      }, tickMs);
+    });
+
+    // ✅ stop streaming FIRST so only the Firestore message renders
+    setIsStreaming(false);
+    setStreamText("");
+
+    // now persist assistant message (snapshot will render it once)
     await addDoc(collection(db, "users", uid, "chats", activeChatId, "messages"), {
-      role: "user",
-      content: text,
+      role: "assistant",
+      content: fullReply,
+      sources: respSources,
       createdAt: serverTimestamp(),
     });
 
-    const isFirst = messages.length === 0;
     await updateDoc(doc(db, "users", uid, "chats", activeChatId), {
-      ...(isFirst ? { title: titleFrom(text) } : {}),
       lastMessage: "",
       updatedAt: serverTimestamp(),
     });
 
-    try {
-      const history = buildHistory(messages, text);
+    setLoading(false);
+    smartScrollToBottom("smooth");
+  } catch (err) {
+    console.error("❌ Backend error:", err?.message || err);
+    setIsStreaming(false);
+    setStreamText("");
+    setLoading(false);
+  }
+};
 
-      const res = await axios.post(`${API_BASE}/api/chat`, {
-        message: text,
-        userId: uid,
-        history,
-      });
-
-      const fullReply = res.data.reply || "No response received.";
-      const respSources = Array.isArray(res.data.sources) ? res.data.sources : [];
-
-      // streaming typing effect
-      setIsStreaming(true);
-      setStreamText("");
-      const chunkSize = 4;
-      const tickMs = 18;
-      let i = 0;
-      await new Promise((resolve) => {
-        const timer = setInterval(() => {
-          i += chunkSize;
-          const next = fullReply.slice(0, i);
-          setStreamText(next);
-          if (autoScrollRef.current) smartScrollToBottom("auto");
-          if (i >= fullReply.length) {
-            clearInterval(timer);
-            resolve();
-          }
-        }, tickMs);
-      });
-
-      // ✅ stop streaming FIRST so only the Firestore message renders
-      setIsStreaming(false);
-      setStreamText("");
-
-      // now persist assistant message (snapshot will render it once)
-      await addDoc(collection(db, "users", uid, "chats", activeChatId, "messages"), {
-        role: "assistant",
-        content: fullReply,
-        sources: respSources,
-        createdAt: serverTimestamp(),
-      });
-
-      await updateDoc(doc(db, "users", uid, "chats", activeChatId), {
-        lastMessage: "",
-        updatedAt: serverTimestamp(),
-      });
-
-      setLoading(false);
-      smartScrollToBottom("smooth");
-    } catch (err) {
-      console.error("❌ Backend error:", err?.message || err);
-      setIsStreaming(false);
-      setStreamText("");
-      setLoading(false);
-    }
-  };
-
+  // ---- Send with memory ----
+ 
   return (
-    <div className="flex h-screen min-h-0 bg-zinc-950 text-white w-full max-w-[100vw] overflow-hidden overflow-x-hidden relative">
+<div className="flex h-screen min-h-0 bg-zinc-950 text-white w-full max-w-[100vw] overflow-hidden overflow-x-hidden relative">
       {/* Sidebar */}
       <div
         className={`fixed sm:static inset-y-0 left-0 z-40 w-40 sm:w-44 md:w-48 lg:w-52 bg-zinc-900 border-r border-zinc-800 p-4 transform transition-transform duration-300 ease-in-out
@@ -274,11 +275,8 @@ function Chatbox() {
           <button
             className="sm:hidden text-zinc-400 hover:text-white"
             onClick={() => setSidebarOpen(false)}
-            aria-label="Close sidebar"
-            title="Close"
           >
-            {/* 22px → 1.375rem */}
-            <X className="w-[1.375rem] h-[1.375rem]" />
+            <X size={22} />
           </button>
         </div>
         <div className="space-y-2 overflow-y-auto max-h-[80vh] pr-1">
@@ -304,10 +302,8 @@ function Chatbox() {
                   onClick={() => handleDeleteChat(c.id)}
                   disabled={deletingId === c.id}
                   title="Delete"
-                  aria-label="Delete chat"
                 >
-                  {/* 16px → 1rem */}
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 size={16} />
                 </button>
               </div>
             ))
@@ -321,36 +317,35 @@ function Chatbox() {
           <button
             className="text-zinc-300 hover:text-white"
             onClick={() => setSidebarOpen(true)}
-            aria-label="Open sidebar"
-            title="Open"
           >
-            {/* 24px → 1.5rem */}
-            <Menu className="w-6 h-6" />
+            <Menu size={24} />
           </button>
           <h1 className="text-lg font-semibold">Chatbot</h1>
           <div className="w-6" />
         </div>
 
         {/* Scroll area */}
-        <div
-          ref={scrollRef}
-          className="chat-scroll w-full max-w-4xl flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 sm:px-3 py-4 space-y-3 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl relative"
-        >
+        
+  <div ref={scrollRef}
+  className="chat-scroll w-full max-w-4xl flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 sm:px-3 py-4 space-y-3 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl relative"
+>
+
+
+        
           {messages.length === 0 ? (
             <div className="text-center text-zinc-500 mt-10 text-sm sm:text-base">
               Start a conversation...
             </div>
           ) : (
-            messages.map((m, i) => (
-              <Message
-                key={m.id || i}
-                text={m.content}
-                sender={m.role === "user" ? "user" : "bot"}
-                sources={m.sources || []}
-              />
-            ))
+           messages.map((m, i) => (
+  <Message
+    key={m.id || i}
+    text={m.content}
+    sender={m.role === "user" ? "user" : "bot"}
+    sources={m.sources || []}
+  />
+))
           )}
-
           {isStreaming && <Message text={streamText} sender="bot" sources={[]} />}
 
           {loading && !isStreaming && (
@@ -362,7 +357,6 @@ function Chatbox() {
               </div>
             </div>
           )}
-
           {!autoScroll && (
             <button
               onClick={() => {
@@ -373,8 +367,7 @@ function Chatbox() {
               className="absolute right-4 bottom-4 flex items-center gap-1 bg-zinc-800/90 hover:bg-zinc-700 text-white text-xs px-3 py-2 rounded-full shadow-lg border border-zinc-700"
               title="Jump to latest"
             >
-              {/* 14px → 0.875rem */}
-              <ArrowDown className="w-[0.875rem] h-[0.875rem]" />
+              <ArrowDown size={14} />
               New messages
             </button>
           )}
