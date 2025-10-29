@@ -1,19 +1,6 @@
 @import "tailwindcss";
 
 
-/* Netlify-only visual nudge */
-html.on-netlify {
-    font-size: 16.6px !important;
-}
-/* Slightly scale icons only on Netlify (safe, reversible) */
-html.on-netlify button svg {
-    transform: scale(1.03);
-    transform-origin: center;
-}
-
-/* try 16.6; if still small, try 16.7 */
-
-/* try 16.5; adjust to 16.4/16.6 if needed */
 
 /* ~3% visual nudge */
 /* Make base rules run after preflight */

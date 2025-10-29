@@ -17,7 +17,7 @@ const bubbleMax = isUser
        <div
   className={`inline-block w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl shadow-sm
   whitespace-pre-wrap break-words overflow-hidden text-ellipsis
-  text-[13px] sm:text-[13.5px] md:text-[14px] leading-relaxed
+  text-[0.8125rem] sm:text-[0.84375rem] md:text-[0.875rem] leading-relaxed
   ${isUser ? "bg-indigo-600 text-white rounded-br-sm"
            : "bg-zinc-800 text-zinc-100 rounded-bl-sm"}`}
 >
