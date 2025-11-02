@@ -3,35 +3,33 @@ import React from "react";
 function Message({ text, sender, sources = [] }) {
   const isUser = sender === "user";
 
-  // Slightly larger bubble caps
-  // (kept your rem-based caps; nudged each up ~1–2rem where helpful)
   const bubbleMax = isUser
-    ? "max-w-[114vw] sm:max-w-[28rem] md:max-w-[40rem] xl:max-w-[34rem]"
-    : "max-w-[94vw]  sm:max-w-[30rem] md:max-w-[40rem] xl:max-w-[38rem]";
+    ? "max-w-[96vw] sm:max-w-[36rem] md:max-w-[44rem] xl:max-w-[48rem]"
+    : "max-w-[92vw] sm:max-w-[38rem] md:max-w-[46rem] xl:max-w-[52rem]";
 
   return (
     <div className={`flex w-full ${isUser ? "justify-end" : "justify-start"}`}>
       <div className={bubbleMax}>
         <div
-          className={`inline-block w-full px-4 py-3 sm:px-5 sm:py-3.5 rounded-2xl shadow-sm
-  whitespace-pre-wrap break-words overflow-hidden text-ellipsis
-  text-sm sm:text-[0.95rem] md:text-base leading-relaxed
-  ${isUser ? "bg-indigo-600 text-white rounded-br-sm" : "bg-zinc-800 text-zinc-100 rounded-bl-sm"}`}
+          className={`inline-block w-full px-5 py-4 sm:px-6 sm:py-5 rounded-2xl shadow-sm
+  whitespace-pre-wrap break-words overflow-x-hidden
+  text-base sm:text-[1.05rem] md:text-lg leading-relaxed tracking-[0.01em]
+  ${isUser ? "bg-indigo-600 text-white rounded-br-md" : "bg-zinc-800 text-zinc-100 rounded-bl-md"}`}
         >
-          <p className="whitespace-pre-wrap break-words">{text}</p>
+          {/* wrap anywhere inside message */}
+          <p className="msg-content">{text}</p>
 
-          {/* Sources (assistant only) */}
           {!isUser && sources.length > 0 && (
-            <div className="mt-3 pt-2.5 border-t border-zinc-700 text-[0.72rem] sm:text-[0.78rem] text-zinc-400 break-words overflow-hidden">
-              <p className="font-medium text-zinc-300 mb-1.5">Sources:</p>
-              <ul className="list-disc list-inside space-y-1">
+            <div className="mt-4 pt-3 border-t border-zinc-700 text-[0.9rem] sm:text-[0.95rem] text-zinc-300/90">
+              <p className="font-semibold text-zinc-100 mb-2">Sources:</p>
+              <ul className="list-disc list-inside space-y-1.5 msg-sources">
                 {sources.map((src, i) => (
-                  <li key={i} className="truncate leading-snug">
+                  <li key={i}>
                     <a
                       href={src.link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-indigo-300 hover:underline break-all"
+                      className="inline-block max-w-full break-words"
                     >
                       {src.title || src.link}
                     </a>
@@ -45,5 +43,6 @@ function Message({ text, sender, sources = [] }) {
     </div>
   );
 }
+
 
 export default Message;

@@ -1,40 +1,54 @@
-// src/App.jsx
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import SignUp from './components/SignUp.jsx';
-import SignIn from './components/SignIn.jsx';
-import Chatbox from './components/Chatbox.jsx';
-import { auth } from './firebase';
+import React from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
 
-// Simple auth gate to protect private routes
-function RequireAuth({ children }) {
-  const location = useLocation();
-  const user = auth.currentUser;
-  // If not logged in, send to /signin but remember where they tried to go
-  if (!user) {
-    return <Navigate to="/signin" replace state={{ from: location }} />;
-  }
-  return children;
-}
+// ✅ Your components
+import SignIn from "./components/SignIn";
+import SignUp from "./components/SignUp";
+import Chatbox from "./components/Chatbox";
 
-export default function App() {
+// ✅ Optional: You can later add AuthListener here if needed for login-state routing
+
+function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Navigate to="/signin" replace />} />
-        <Route path="/signin" element={<SignIn />} />
-        <Route path="/signup" element={<SignUp />} />
-
-        <Route
-          path="/chat"
-          element={
-            <RequireAuth>
-              <Chatbox />
-            </RequireAuth>
-          }
+    <Router>
+<div className="min-h-screen bg-zinc-950">        {/* ✅ Global toast popup */}
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 2500,
+            style: {
+              fontSize: "15px",
+              borderRadius: "10px",
+              fontWeight: 500,
+            },
+            success: {
+              iconTheme: { primary: "#fff", secondary: "#16a34a" },
+              style: {
+                background: "#16a34a", // emerald green
+                color: "#fff",
+              },
+            },
+            error: {
+              style: {
+                background: "#dc2626", // red
+                color: "#fff",
+              },
+            },
+          }}
         />
-        <Route path="*" element={<Navigate to="/signin" replace />} />
-      </Routes>
-    </BrowserRouter>
+
+        {/* ✅ Route system */}
+        <Routes>
+          <Route path="/" element={<Navigate to="/signin" replace />} />
+          <Route path="/signin" element={<SignIn />} />
+          <Route path="/signup" element={<SignUp />} />
+          <Route path="/chat" element={<Chatbox />} />
+        </Routes>
+      </div>
+    </Router>
   );
 }
+
+export default App;
+
