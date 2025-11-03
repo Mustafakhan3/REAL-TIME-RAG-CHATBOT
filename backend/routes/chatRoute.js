@@ -53,6 +53,12 @@ function maybeHandleMemoryQuery(message, safeHistory) {
   return `Yes — your previous message in this chat was:\n\n“${prevUser}”`;
 }
 
+/** Decide if fresh info is needed */
+function needsFreshInfo(message) {
+  const re = /(latest|today|now|news|update|price|rate|this week|this month|current|who is|new|recent)/i;
+  return re.test(message || '');
+}
+
 router.post('/chat', async (req, res) => {
   try {
     const { message, userId, history } = req.body;
@@ -61,7 +67,10 @@ router.post('/chat', async (req, res) => {
     console.log('\n=== /api/chat ===');
     console.log('userId:', userId);
     console.log('message:', message);
-    console.log('history raw type:', Array.isArray(history) ? `array(${history.length})` : typeof history);
+    console.log(
+      'history raw type:',
+      Array.isArray(history) ? `array(${history.length})` : typeof history
+    );
 
     if (!message || !userId) {
       return res.status(400).json({ error: 'Message and userId are required' });
@@ -86,42 +95,66 @@ router.post('/chat', async (req, res) => {
       return res.json({ reply: memoryAnswer, sources: [] });
     }
 
-    // 3) optional web/news (kept for your app)
-    const [webResults, newsResults] = await Promise.all([
-      fetchWebResults(message),
-      fetchNewsResults(message),
-    ]);
-    const combined = [...(webResults?.organic || []), ...(newsResults?.news || [])];
+    // 3) Optional web/news — ONLY if needed
+    let webResults = null;
+    let newsResults = null;
+    if (needsFreshInfo(message)) {
+      [webResults, newsResults] = await Promise.all([
+        fetchWebResults(message),
+        fetchNewsResults(message),
+      ]);
+    }
 
+    const combined = [
+      ...(webResults?.organic || []),
+      ...(newsResults?.news || []),
+    ];
+
+    // keep short & clean snippets
+    const MAX_SNIP = 300;
     const contextBullets = combined.slice(0, 6).map((r, i) => {
-      const title = r.title || r.link || 'Untitled';
-      const snip = r.snippet || '';
+      const title = (r.title || r.link || 'Untitled').trim();
+      const snip = (r.snippet || '').replace(/\s+/g, ' ').slice(0, MAX_SNIP);
       const link = r.link || 'N/A';
       return `(${i + 1}) ${title}\n${snip}\nLink: ${link}`;
     });
-    const contextNote =
-      contextBullets.length
-        ? `Here are some optional snippets you may cite if relevant:\n\n${contextBullets.join('\n\n')}`
-        : 'No additional web/news snippets were fetched.';
 
-    // 4) messages[] = system + prior turns + current user
+    // 4) messages[] = strict system + optional snippets + prior turns + current user
     const systemMsg = {
       role: 'system',
-      content:
-        "You are a helpful assistant. Use the prior conversation provided to maintain context. " +
-        "Do NOT claim you lack memory—rely on the previous turns you've been given. " +
-        "Be concise, factual, and avoid repetition.",
+      content: [
+        "You are a precise assistant. Answer concisely and factually.",
+        "If web/news snippets are provided, prefer them over prior knowledge.",
+        "If information is uncertain, missing, conflicting, or outdated, say so explicitly.",
+        "Never invent citations or facts. Do not guess numbers or dates.",
+        "If the user asks for the latest or real-time info, use the provided snippets.",
+        "If snippets are irrelevant, ignore them and answer from stable knowledge, or say you don't have enough info."
+      ].join(' ')
     };
-    const turns = [...safeHistory]; // oldest → newest
-    const userMsg = { role: 'user', content: `${message}\n\n---\n${contextNote}` };
-    const messages = [systemMsg, ...turns, userMsg];
+
+    const snippetsMsg = {
+      role: 'system',
+      content: contextBullets.length
+        ? ["Web/news snippets (optional):", "", ...contextBullets.map((b) => "- " + b)].join('\n')
+        : "No web/news snippets for this question."
+    };
+
+    const turns = [...safeHistory];
+    const userMsg = {
+      role: 'user',
+      content: needsFreshInfo(message)
+        ? `${message}\n\nIf the snippets don't confirm the answer, say you can't verify it.`
+        : message
+    };
+
+    const messages = [systemMsg, snippetsMsg, ...turns, userMsg];
 
     console.log('messages count:', messages.length);
     console.log('messages last two:', messages.slice(-2));
 
     // 5) call Groq
     const reply = await chatWithGroq(messages, {
-      temperature: 0.3,
+      temperature: 0.1,
       maxTokens: 900,
       model: 'llama-3.3-70b-versatile',
     });
