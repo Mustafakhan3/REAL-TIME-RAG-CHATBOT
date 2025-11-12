@@ -1,29 +1,42 @@
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import chatRoute from './routes/chatRoute.js';
+// backend/server.js
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import chatRoute from "./routes/chatRoute.js";
 
 dotenv.config();
 
 const app = express();
 
-app.use(cors({
-  origin: true,
-  credentials: false,
-  methods: ['GET', 'POST', 'OPTIONS'],
-  optionsSuccessStatus: 204,
-}));
+// --- Determine environment ---
+const isProduction = process.env.NODE_ENV === "production";
+const frontendOrigin = isProduction
+  ? process.env.FRONTEND_URL || "https://your-netlify-site.netlify.app"
+  : "http://localhost:5173"; // or your React dev port
 
-app.use(express.json({ limit: '2mb' }));
+// --- CORS setup ---
+app.use(
+  cors({
+    origin: frontendOrigin,
+    credentials: false,
+    methods: ["GET", "POST", "OPTIONS"],
+  })
+);
 
-app.get('/health', (_req, res) => res.send('ok'));
-app.get('/api/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
+app.use(express.json({ limit: "2mb" }));
 
-app.use('/api', chatRoute);
+// --- Health check routes ---
+app.get("/health", (_, res) => res.send("ok"));
+app.get("/api/health", (_, res) => res.json({ ok: true, ts: Date.now() }));
 
-const PORT = process.env.PORT || 8080;
-const HOST = '0.0.0.0'; // this line is crucial
+// --- Main chat route ---
+app.use("/api", chatRoute);
+
+// --- Dynamic port handling ---
+const PORT = process.env.PORT || 5000;
+const HOST = isProduction ? "0.0.0.0" : "localhost";
 
 app.listen(PORT, HOST, () => {
   console.log(`🚀 Server running on http://${HOST}:${PORT}`);
+  console.log(`CORS origin allowed: ${frontendOrigin}`);
 });
