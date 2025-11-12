@@ -7,10 +7,20 @@ import admin from 'firebase-admin';
 
 const router = express.Router();
 
-/** ---- Memory limits ---- */
+/** ---- Memory & limits ---- */
 const MAX_TURNS = 12;
 const MAX_CHARS = 6000;
 
+/** Tiny timeout wrapper so external calls can’t hang forever */
+const withTimeout = (p, ms, label = 'op') =>
+  Promise.race([
+    p,
+    new Promise((_, rej) =>
+      setTimeout(() => rej(new Error(`${label} timeout after ${ms}ms`)), ms)
+    ),
+  ]);
+
+/** Clean incoming history */
 function sanitizeHistory(historyRaw) {
   if (!Array.isArray(historyRaw)) return [];
   const cleaned = historyRaw
@@ -24,7 +34,7 @@ function sanitizeHistory(historyRaw) {
     .map((m) => ({ role: m.role, content: m.content.trim() }))
     .filter((m) => m.content.length > 0);
 
-  // keep last N turns (≈ 2 msgs/turn)
+  // keep last N turns (≈2 msgs/turn)
   let trimmed = cleaned.slice(-MAX_TURNS * 2);
 
   // enforce char budget
@@ -37,7 +47,7 @@ function sanitizeHistory(historyRaw) {
 
 /** Intercept “do you remember…” questions deterministically */
 function maybeHandleMemoryQuery(message, safeHistory) {
-  const m = message.toLowerCase();
+  const m = (message || '').toLowerCase();
   const hints = [
     'do you remember',
     'remember my last message',
@@ -46,7 +56,6 @@ function maybeHandleMemoryQuery(message, safeHistory) {
   ];
   if (!hints.some((h) => m.includes(h))) return null;
 
-  // previous user message before the current one
   const users = safeHistory.filter((x) => x.role === 'user');
   const prevUser = users.length >= 2 ? users[users.length - 2].content : null;
   if (!prevUser) return "You haven't sent any message before this one in this chat.";
@@ -61,7 +70,16 @@ function needsFreshInfo(message) {
 
 router.post('/chat', async (req, res) => {
   try {
-    const { message, userId, history } = req.body;
+    // Accept BOTH shapes:
+    // A) { message, userId, history }
+    // B) { messages: [{role, content}, ...], userId }
+    let { message, userId, history } = req.body || {};
+
+    if (!message && Array.isArray(req.body?.messages)) {
+      const lastUser = [...req.body.messages].reverse().find(m => m?.role === 'user');
+      message = lastUser?.content;
+      history = req.body.messages; // reuse entire array as history
+    }
 
     // ---- DIAGNOSTICS ----
     console.log('\n=== /api/chat ===');
@@ -84,33 +102,40 @@ router.post('/chat', async (req, res) => {
     // 2) direct memory answer (no model)
     const memoryAnswer = maybeHandleMemoryQuery(message, safeHistory);
     if (memoryAnswer) {
-      console.log('memoryAnswer:', memoryAnswer);
-      await db.collection('messages').add({
-        userId,
-        role: 'user',
-        content: message,
-        reply: memoryAnswer,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
+      try {
+        await db.collection('messages').add({
+          userId,
+          role: 'user',
+          content: message,
+          reply: memoryAnswer,
+          createdAt: admin.firestore.FieldValue?.serverTimestamp?.() ?? new Date(),
+        });
+      } catch {}
       return res.json({ reply: memoryAnswer, sources: [] });
     }
 
-    // 3) Optional web/news — ONLY if needed
-    let webResults = null;
-    let newsResults = null;
-    if (needsFreshInfo(message)) {
-      [webResults, newsResults] = await Promise.all([
-        fetchWebResults(message),
-        fetchNewsResults(message),
-      ]);
+    // 3) Optional web/news — ONLY if needed and keys exist
+    let combined = [];
+    const SERPER_OK = !!process.env.SERPER_API_KEY;
+    if (needsFreshInfo(message) && SERPER_OK) {
+      try {
+        const [webResults, newsResults] = await withTimeout(
+          Promise.all([
+            fetchWebResults(message),
+            fetchNewsResults(message),
+          ]),
+          8000,
+          'serper'
+        );
+        combined = [
+          ...(webResults?.organic || []),
+          ...(newsResults?.news || []),
+        ];
+      } catch (e) {
+        console.warn('serper skipped:', e?.message || e);
+      }
     }
 
-    const combined = [
-      ...(webResults?.organic || []),
-      ...(newsResults?.news || []),
-    ];
-
-    // keep short & clean snippets
     const MAX_SNIP = 300;
     const contextBullets = combined.slice(0, 6).map((r, i) => {
       const title = (r.title || r.link || 'Untitled').trim();
@@ -122,14 +147,9 @@ router.post('/chat', async (req, res) => {
     // 4) messages[] = strict system + optional snippets + prior turns + current user
     const systemMsg = {
       role: 'system',
-      content: [
-        "You are a precise assistant. Answer concisely and factually.",
-        "If web/news snippets are provided, prefer them over prior knowledge.",
-        "If information is uncertain, missing, conflicting, or outdated, say so explicitly.",
-        "Never invent citations or facts. Do not guess numbers or dates.",
-        "If the user asks for the latest or real-time info, use the provided snippets.",
-        "If snippets are irrelevant, ignore them and answer from stable knowledge, or say you don't have enough info."
-      ].join(' ')
+      content:
+        "You are a precise assistant. Answer concisely and factually. " +
+        "Prefer provided snippets for recent info; otherwise be explicit about uncertainty."
     };
 
     const snippetsMsg = {
@@ -148,33 +168,43 @@ router.post('/chat', async (req, res) => {
     };
 
     const messages = [systemMsg, snippetsMsg, ...turns, userMsg];
-
     console.log('messages count:', messages.length);
     console.log('messages last two:', messages.slice(-2));
 
-    // 5) call Groq
-    const reply = await chatWithGroq(messages, {
-      temperature: 0.1,
-      maxTokens: 900,
-      model: 'llama-3.3-70b-versatile',
-    });
+    // 5) call Groq with timeout; skip gracefully if key missing
+    let reply = "I'm up, but my model key isn't configured on the server.";
+    if (process.env.GROQ_API_KEY) {
+      try {
+        reply = await withTimeout(
+          chatWithGroq(messages, {
+            temperature: 0.1,
+            maxTokens: 900,
+            model: 'llama-3.3-70b-versatile',
+          }),
+          15000,
+          'groq'
+        );
+      } catch (e) {
+        console.error('Groq error:', e?.response?.data || e?.message || e);
+        reply = 'Sorry — the model call failed.';
+      }
+    }
 
-    console.log('Groq reply (start):', (reply || '').slice(0, 140));
-
-    // 6) sources for UI
     const sources = combined.slice(0, 4).map((r) => ({
       title: r.title || r.link,
       link: r.link,
     }));
 
-    // 7) log (optional)
-    await db.collection('messages').add({
-      userId,
-      role: 'user',
-      content: message,
-      reply,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    // 7) log (best-effort)
+    try {
+      await db.collection('messages').add({
+        userId,
+        role: 'user',
+        content: message,
+        reply,
+        createdAt: admin.firestore.FieldValue?.serverTimestamp?.() ?? new Date(),
+      });
+    } catch {}
 
     return res.json({ reply, sources });
   } catch (e) {
