@@ -38,6 +38,7 @@ const PORT = process.env.PORT || 8080;
 
 // ✅ Don't pass HOST manually – let Express bind correctly
 app.listen(PORT, () => {
+    console.log("process.env.PORT =", process.env.PORT);
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`CORS origin allowed: ${frontendOrigin}`);
 });
