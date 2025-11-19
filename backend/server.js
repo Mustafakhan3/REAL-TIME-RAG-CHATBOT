@@ -10,15 +10,16 @@ const app = express();
 
 // --- Determine environment ---
 const isProduction = process.env.NODE_ENV === "production";
+
+// ✅ Use correct frontend origin
 const frontendOrigin = isProduction
   ? process.env.FRONTEND_URL || "https://real-time-rag-chatbot.netlify.app"
-  : "http://localhost:5173"; // or your React dev port
+  : "http://localhost:5173"; // your React dev port
 
 // --- CORS setup ---
 app.use(
   cors({
     origin: frontendOrigin,
-    credentials: false,
     methods: ["GET", "POST", "OPTIONS"],
   })
 );
@@ -34,9 +35,9 @@ app.use("/api", chatRoute);
 
 // --- Dynamic port handling ---
 const PORT = process.env.PORT || 8080;
-const HOST = isProduction ? "0.0.0.0" : "localhost";
 
-app.listen(PORT, HOST, () => {
-  console.log(`🚀 Server running on http://${HOST}:${PORT}`);
+// ✅ Don't pass HOST manually – let Express bind correctly
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
   console.log(`CORS origin allowed: ${frontendOrigin}`);
 });
