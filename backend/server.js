@@ -11,7 +11,7 @@ const app = express();
 // --- Determine environment ---
 const isProduction = process.env.NODE_ENV === "production";
 const frontendOrigin = isProduction
-  ? process.env.FRONTEND_URL || "https://your-netlify-site.netlify.app"
+  ? process.env.FRONTEND_URL || "https://real-time-rag-chatbot.netlify.app"
   : "http://localhost:5173"; // or your React dev port
 
 // --- CORS setup ---
