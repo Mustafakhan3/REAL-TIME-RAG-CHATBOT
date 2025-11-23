@@ -335,39 +335,53 @@ function Chatbox() {
         <div className="space-y-2.5 overflow-y-auto max-h-[74vh] pr-1.5">
   
 {chats.length === 0 ? (
-  <p className="text-zinc-500 text-base">No chats yet</p>
+  <p className="text-zinc-500 text-sm px-2">No chats yet</p>
 ) : (
   chats.map((c) => {
     const t = (c.title || "Untitled").trim();
-    const isShort = t.length <= 14;
+    const isActive = activeChatId === c.id;
 
     return (
       <div
         key={c.id}
-        className={`group flex items-center gap-2 text-base px-3 py-2.5 rounded-xl cursor-pointer border border-transparent hover:border-zinc-700
-        ${activeChatId === c.id ? "bg-zinc-800 border-zinc-700" : "bg-zinc-900"}`}
+        className={`
+          group relative flex items-center gap-2
+          h-12 px-3 rounded-lg cursor-pointer
+          transition-all duration-150
+          ${isActive 
+            ? "bg-zinc-800/80 text-white" 
+            : "bg-zinc-900/40 text-zinc-300 hover:bg-zinc-800/60 hover:text-white"}
+        `}
+        onClick={() => setActiveChatId(c.id)}
+        title={t}
       >
-        {/* IMPORTANT: min-w-0 allows truncation without pushing the icon out */}
-        <button
-          className={`min-w-0 flex-1 h-9 flex items-center ${
-            isShort ? "justify-center text-center" : "justify-start text-left"
-          }`}
-          title={t}
-          onClick={() => setActiveChatId(c.id)}
-        >
-          <span className="block w-full truncate">{t}</span>
-        </button>
+        {/* active indicator */}
+        {isActive && (
+          <div className="absolute left-0 top-2 bottom-2 w-1 rounded-r bg-indigo-500" />
+        )}
 
-        {/* Always visible on mobile; hover-reveal on sm+ */}
+        {/* title */}
+        <span className="min-w-0 flex-1 text-sm font-medium truncate pl-1">
+          {t}
+        </span>
+
+        {/* delete */}
         <button
-          className="flex-shrink-0 ml-1 p-2 rounded-lg text-zinc-400 hover:text-red-400 transition
-                     opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100"
-          onClick={() => handleDeleteChat(c.id)}
+          className="
+            flex-shrink-0 p-2 rounded-md
+            text-zinc-400 hover:text-red-400 hover:bg-zinc-700/40
+            transition
+            opacity-100 sm:opacity-0 sm:group-hover:opacity-100
+          "
+          onClick={(e) => {
+            e.stopPropagation();
+            handleDeleteChat(c.id);
+          }}
           disabled={deletingId === c.id}
           title="Delete"
           aria-label="Delete chat"
         >
-          <Trash2 size={18} />
+          <Trash2 size={16} />
         </button>
       </div>
     );
