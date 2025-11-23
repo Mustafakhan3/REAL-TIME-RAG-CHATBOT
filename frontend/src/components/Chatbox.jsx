@@ -471,7 +471,7 @@ function Chatbox() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSend()}
-              placeholder="Message ChatGPT..."
+              placeholder="Message your RAG assistant…"
               className="flex-1 bg-zinc-800 text-zinc-50 placeholder-zinc-500 px-4 py-3 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-base sm:text-lg"
             />
             <button
