@@ -18,7 +18,6 @@ import {
   updateDoc,
 } from "firebase/firestore";
 
-// 👇 pick API base from env (Netlify) or fall back to localhost (local dev)
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 
 function Chatbox() {
@@ -33,7 +32,7 @@ function Chatbox() {
   const [deletingId, setDeletingId] = useState(null);
 
   const scrollRef = useRef(null);
-  const chatEndRef = useRef(null);      // explicit anchor at the end
+  const chatEndRef = useRef(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const autoScrollRef = useRef(true);
   const bootstrappedRef = useRef(false);
@@ -48,7 +47,6 @@ function Chatbox() {
     return clean.split(" ").slice(0, 8).join(" ");
   }
 
-  // Less twitchy bottom check
   function atBottom(el, eps = 12) {
     if (!el) return true;
     const { scrollTop, scrollHeight, clientHeight } = el;
@@ -59,7 +57,6 @@ function Chatbox() {
     if (autoScrollRef.current) chatEndRef.current?.scrollIntoView({ behavior });
   };
 
-  // ---- Memory helpers (frontend) ----
   const MAX_TURNS = 12;
   const MAX_CHARS = 6000;
 
@@ -82,7 +79,6 @@ function Chatbox() {
     return trimmed;
   }
 
-  // ---- Create a new chat (reusable) ----
   const createNewChat = async () => {
     if (!uid) return null;
     const colRef = collection(db, "users", uid, "chats");
@@ -98,7 +94,6 @@ function Chatbox() {
     return chatDoc.id;
   };
 
-  // ---- Load chats (left sidebar) ----
   useEffect(() => {
     if (!uid) return;
     const colRef = collection(db, "users", uid, "chats");
@@ -122,23 +117,26 @@ function Chatbox() {
     return () => unsub();
   }, [uid, activeChatId]);
 
-  // ---- Load messages in active chat ----
   useEffect(() => {
     if (!uid || !activeChatId) return;
-    const colRef = collection(db, "users", uid, "chats", activeChatId, "messages");
+    const colRef = collection(
+      db,
+      "users",
+      uid,
+      "chats",
+      activeChatId,
+      "messages"
+    );
     const q = query(colRef, orderBy("createdAt", "asc"));
     const unsub = onSnapshot(q, (snap) => {
       const rows = [];
       snap.forEach((d) => rows.push({ id: d.id, ...d.data() }));
       setMessages(rows);
-
-      // Scroll immediately on next frame (no smooth) to avoid visible bump
       requestAnimationFrame(() => smartScrollToBottom("auto"));
     });
     return () => unsub();
   }, [uid, activeChatId]);
 
-  // ---- Scroll lock (keep pinned while streaming; allow unpin when not streaming) ----
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -152,7 +150,6 @@ function Chatbox() {
 
     const onScroll = () => {
       if (isStreaming) {
-        // while streaming, force-follow bottom
         setAutoScroll(true);
         autoScrollRef.current = true;
         return;
@@ -168,8 +165,7 @@ function Chatbox() {
     el.addEventListener("scroll", onScroll, { passive: true });
     el.addEventListener("touchmove", onScroll, { passive: true });
 
-    onScroll(); // init
-
+    onScroll();
     return () => {
       el.removeEventListener("mousedown", onGestureStart);
       el.removeEventListener("touchstart", onGestureStart);
@@ -179,20 +175,25 @@ function Chatbox() {
     };
   }, [isStreaming]);
 
-  // Scroll BEFORE paint whenever messages grow or stream updates
   useLayoutEffect(() => {
     if (autoScrollRef.current) {
       chatEndRef.current?.scrollIntoView({ behavior: "auto" });
     }
   }, [messages, isStreaming]);
 
-  // ---- Delete chat ----
   const handleDeleteChat = async (id) => {
     if (!uid || !id) return;
     if (!confirm("Delete this chat permanently?")) return;
     setDeletingId(id);
     try {
-      const msgsCol = collection(db, "users", uid, "chats", id, "messages");
+      const msgsCol = collection(
+        db,
+        "users",
+        uid,
+        "chats",
+        id,
+        "messages"
+      );
       const msgs = await getDocs(query(msgsCol, limit(500)));
       await Promise.all(msgs.docs.map((d) => deleteDoc(d.ref)));
       await deleteDoc(doc(db, "users", uid, "chats", id));
@@ -202,7 +203,6 @@ function Chatbox() {
     }
   };
 
-  // ---- New Chat (sidebar button) ----
   const handleNewChat = async () => {
     await createNewChat();
     setSidebarOpen(false);
@@ -226,11 +226,14 @@ function Chatbox() {
     setAutoScroll(follow);
     autoScrollRef.current = follow;
 
-    await addDoc(collection(db, "users", uid, "chats", chatId, "messages"), {
-      role: "user",
-      content: text,
-      createdAt: serverTimestamp(),
-    });
+    await addDoc(
+      collection(db, "users", uid, "chats", chatId, "messages"),
+      {
+        role: "user",
+        content: text,
+        createdAt: serverTimestamp(),
+      }
+    );
 
     const isFirst = messages.length === 0;
     await updateDoc(doc(db, "users", uid, "chats", chatId), {
@@ -249,9 +252,10 @@ function Chatbox() {
       });
 
       const fullReply = res.data.reply || "No response received.";
-      const respSources = Array.isArray(res.data.sources) ? res.data.sources : [];
+      const respSources = Array.isArray(res.data.sources)
+        ? res.data.sources
+        : [];
 
-      // streaming typing effect
       setIsStreaming(true);
       setStreamText("");
       const chunkSize = 4;
@@ -270,20 +274,20 @@ function Chatbox() {
         }, tickMs);
       });
 
-      // stop streaming BEFORE writing the stored assistant message
       setIsStreaming(false);
       setStreamText("");
 
-      // allow React to commit the state change before Firestore snapshot arrives
       await new Promise((r) => requestAnimationFrame(r));
 
-      // persist assistant message (snapshot will render exactly once)
-      await addDoc(collection(db, "users", uid, "chats", chatId, "messages"), {
-        role: "assistant",
-        content: fullReply,
-        sources: respSources,
-        createdAt: serverTimestamp(),
-      });
+      await addDoc(
+        collection(db, "users", uid, "chats", chatId, "messages"),
+        {
+          role: "assistant",
+          content: fullReply,
+          sources: respSources,
+          createdAt: serverTimestamp(),
+        }
+      );
 
       await updateDoc(doc(db, "users", uid, "chats", chatId), {
         lastMessage: "",
@@ -301,14 +305,31 @@ function Chatbox() {
   };
 
   return (
-    <div className="flex h-screen min-h-0 bg-zinc-950 text-white w-full max-w-[100vw] overflow-hidden overflow-x-hidden relative">
+    // ✅ KEY FIX: fixed on mobile to escape parent max-width, normal on sm+
+    <div className="fixed inset-0 sm:relative sm:inset-auto sm:h-screen sm:w-full
+                    flex bg-zinc-950 text-white overflow-hidden">
+      
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 sm:hidden z-30"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* Sidebar */}
       <div
-        className={`fixed sm:static inset-y-0 left-0 z-40 w-56 sm:w-60 md:w-64 lg:w-72 bg-zinc-900 border-r border-zinc-800 p-5 transform transition-transform duration-300 ease-in-out
+        className={`fixed sm:static inset-y-0 left-0 z-40
+        w-[85vw] max-w-[19rem] sm:w-60 md:w-64 lg:w-72
+        bg-zinc-900 border-r border-zinc-800 p-4 sm:p-5
+        transform transition-transform duration-300 ease-in-out
+        h-full overflow-y-auto
         ${sidebarOpen ? "translate-x-0" : "-translate-x-full sm:translate-x-0"}`}
       >
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold text-zinc-100 tracking-tight">Saved Chats</h2>
+        <div className="flex items-center justify-between mb-4 sm:mb-5">
+          <h2 className="text-lg font-semibold text-zinc-100 tracking-tight">
+            Saved Chats
+          </h2>
           <button
             className="sm:hidden text-zinc-400 hover:text-white"
             onClick={() => setSidebarOpen(false)}
@@ -319,105 +340,101 @@ function Chatbox() {
           </button>
         </div>
 
-        {/* New Chat button */}
         <button
           onClick={handleNewChat}
-          className="w-full mb-5 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 
-             text-white font-medium text-base px-4 py-3 rounded-xl shadow-md hover:shadow-lg 
+          className="w-full mb-4 sm:mb-5 flex items-center justify-center gap-2
+             bg-indigo-600 hover:bg-indigo-500 text-white font-medium
+             text-sm sm:text-base px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl shadow-md hover:shadow-lg
              transition-all duration-200"
           title="Start a new chat"
           aria-label="New chat"
         >
-          <Plus size={20} />
+          <Plus size={18} />
           <span>New Chat</span>
         </button>
 
-        <div className="space-y-2.5 overflow-y-auto max-h-[74vh] pr-1.5">
-  
-{chats.length === 0 ? (
-  <p className="text-zinc-500 text-sm px-2">No chats yet</p>
-) : (
-  chats.map((c) => {
-    const t = (c.title || "Untitled").trim();
-    const isActive = activeChatId === c.id;
+        <div className="space-y-2">
+          {chats.length === 0 ? (
+            <p className="text-zinc-500 text-sm px-2">No chats yet</p>
+          ) : (
+            chats.map((c) => {
+              const t = (c.title || "Untitled").trim();
+              const isActive = activeChatId === c.id;
 
-    return (
-      <div
-        key={c.id}
-        className={`
-          group relative flex items-center gap-2
-          h-12 px-3 rounded-lg cursor-pointer
-          transition-all duration-150
-          ${isActive 
-            ? "bg-zinc-800/80 text-white" 
-            : "bg-zinc-900/40 text-zinc-300 hover:bg-zinc-800/60 hover:text-white"}
-        `}
-        onClick={() => setActiveChatId(c.id)}
-        title={t}
-      >
-        {/* active indicator */}
-        {isActive && (
-          <div className="absolute left-0 top-2 bottom-2 w-1 rounded-r bg-indigo-500" />
-        )}
+              return (
+                <div
+                  key={c.id}
+                  className={`
+                    group relative flex items-center gap-2
+                    h-11 sm:h-12 px-3 rounded-lg cursor-pointer
+                    transition-all duration-150
+                    ${
+                      isActive
+                        ? "bg-zinc-800/80 text-white"
+                        : "bg-zinc-900/40 text-zinc-300 hover:bg-zinc-800/60 hover:text-white"
+                    }
+                  `}
+                  onClick={() => {
+                    setActiveChatId(c.id);
+                    setSidebarOpen(false); // ✅ closes sidebar on mobile after selecting chat
+                  }}
+                  title={t}
+                >
+                  {isActive && (
+                    <div className="absolute left-0 top-2 bottom-2 w-1 rounded-r bg-indigo-500" />
+                  )}
 
-        {/* title */}
-        <span className="min-w-0 flex-1 text-sm font-medium truncate pl-1">
-          {t}
-        </span>
+                  <span className="min-w-0 flex-1 text-sm font-medium truncate pl-1">
+                    {t}
+                  </span>
 
-        {/* delete */}
-        <button
-          className="
-            flex-shrink-0 p-2 rounded-md
-            text-zinc-400 hover:text-red-400 hover:bg-zinc-700/40
-            transition
-            opacity-100 sm:opacity-0 sm:group-hover:opacity-100
-          "
-          onClick={(e) => {
-            e.stopPropagation();
-            handleDeleteChat(c.id);
-          }}
-          disabled={deletingId === c.id}
-          title="Delete"
-          aria-label="Delete chat"
-        >
-          <Trash2 size={16} />
-        </button>
+                  <button
+                    className="flex-shrink-0 p-2 rounded-md
+                      text-zinc-400 hover:text-red-400 hover:bg-zinc-700/40
+                      transition opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteChat(c.id);
+                    }}
+                    disabled={deletingId === c.id}
+                    title="Delete"
+                    aria-label="Delete chat"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
-    );
-  })
-)}
-
-      </div>
-      </div>
-  
-
-      
 
       {/* Chat area */}
-      <div className="flex flex-col flex-1 min-h-0 items-center justify-between p-4 sm:p-5 md:p-4 w-full">
-        <div className="w-full flex items-center justify-between sm:hidden mb-3">
+      <div className="flex flex-col flex-1 min-w-0 min-h-0 w-full p-2 sm:p-4 md:p-4">
+        <div className="w-full flex items-center justify-between sm:hidden mb-2">
           <button
             className="text-zinc-300 hover:text-white"
             onClick={() => setSidebarOpen(true)}
             aria-label="Open sidebar"
             title="Open sidebar"
           >
-            <Menu size={26} />
+            <Menu size={24} />
           </button>
-          <h1 className="text-xl font-semibold">Chatbot</h1>
+          <h1 className="text-base font-semibold">Chatbot</h1>
           <div className="w-6" />
         </div>
 
-        {/* Scroll area (make it relative so the button can be absolutely positioned without affecting layout) */}
-    <div
-  ref={scrollRef}
-  className="chat-scroll relative w-full max-w-5xl flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 sm:px-4 py-2 pb-2 space-y-3 bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl"
->
-
-
+        <div
+          ref={scrollRef}
+          className="chat-scroll relative flex-1 min-h-0 w-full
+                     overflow-y-auto overflow-x-hidden
+                     px-2 sm:px-4 py-3 space-y-3
+                     bg-zinc-900 border border-zinc-800
+                     rounded-2xl sm:rounded-3xl shadow-2xl
+                     lg:max-w-5xl lg:mx-auto"
+        >
           {messages.length === 0 ? (
-            <div className="text-center text-zinc-500 mt-24 text-base sm:text-lg">
+            <div className="text-center text-zinc-500 mt-12 text-sm sm:text-base">
               Start a conversation...
             </div>
           ) : (
@@ -431,7 +448,9 @@ function Chatbox() {
             ))
           )}
 
-          {isStreaming && <Message text={streamText} sender="bot" sources={[]} />}
+          {isStreaming && (
+            <Message text={streamText} sender="bot" sources={[]} />
+          )}
 
           {loading && !isStreaming && (
             <div className="flex justify-start px-4">
@@ -443,7 +462,6 @@ function Chatbox() {
             </div>
           )}
 
-          {/* Render the “Jump to latest” as absolute so it DOES NOT push content */}
           {!autoScroll && (
             <button
               onClick={() => {
@@ -451,33 +469,41 @@ function Chatbox() {
                 autoScrollRef.current = true;
                 smartScrollToBottom("smooth");
               }}
-              className="absolute right-4 bottom-4 z-10 flex items-center gap-1.5 bg-zinc-800/90 hover:bg-zinc-700 text-white text-sm px-3.5 py-2.5 rounded-full shadow-lg border border-zinc-700"
+              className="absolute right-3 bottom-3 z-10 flex items-center gap-1.5
+                         bg-zinc-800/90 hover:bg-zinc-700 text-white text-xs sm:text-sm
+                         px-3 py-2 rounded-full shadow-lg border border-zinc-700"
               title="Jump to latest"
             >
-              <ArrowDown size={16} />
+              <ArrowDown size={14} />
               New messages
             </button>
           )}
 
-          {/* explicit scroll anchor at the end */}
-          <div className="scroll-anchor" ref={chatEndRef} />
+          <div ref={chatEndRef} />
         </div>
 
-        {/* Input */}
-        <div className="w-full max-w-4xl mt-5 border-t border-zinc-800 bg-zinc-950 p-4 rounded-2xl">
-          <div className="flex items-center gap-3">
+        <div
+          className="w-full mt-3 sm:mt-4 border-t border-zinc-800 bg-zinc-950
+                     p-2.5 sm:p-4 rounded-xl sm:rounded-2xl
+                     lg:max-w-4xl lg:mx-auto"
+        >
+          <div className="flex items-center gap-2 sm:gap-3">
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSend()}
               placeholder="Message your RAG assistant…"
-              className="flex-1 bg-zinc-800 text-zinc-50 placeholder-zinc-500 px-4 py-3 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-base sm:text-lg"
+              className="flex-1 min-w-0 bg-zinc-800 text-zinc-50 placeholder-zinc-500
+                         px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl outline-none
+                         focus:ring-2 focus:ring-indigo-500 text-sm sm:text-base"
             />
             <button
               onClick={handleSend}
               disabled={loading || !activeChatId}
-              className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-5 py-3 rounded-xl font-medium transition text-base"
+              className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50
+                         text-white px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl
+                         font-medium transition text-sm sm:text-base"
             >
               Send
             </button>
