@@ -66,17 +66,16 @@ function maybeHandleMemoryQuery(message, safeHistory) {
 function classifyQuery(message = '') {
   const m = message.toLowerCase().trim();
 
- const freshSignals = [
-  'latest','today','now','news','update','price','rate','current','recent',
-  'this week','this month','as of','right now','breaking',
-  'when','time','date','schedule','start','starts','release','launched',
-  'who is','who\'s','election','meeting','event',
-  'weather','forecast','live'
-];
-
+  const freshSignals = [
+    'latest','today','now','news','update','price','rate','current','recent',
+    'this week','this month','as of','right now','breaking',
+    'when','time','date','schedule','start','starts','release','launched',
+    'who is','who\'s','election','meeting','event',
+    'weather','forecast','live'
+  ];
 
   const timelessSignals = [
-    'how to','explain','what is','what are','why','guide','tutorial','example',
+    'how to','improve','explain','what is','what are','why','guide','tutorial','example',
     'difference between','meaning of'
   ];
 
@@ -185,7 +184,6 @@ function normalizeQuery(q = '') {
 
   return q;
 }
-
 
 router.post('/chat', async (req, res) => {
   try {
@@ -297,8 +295,8 @@ router.post('/chat', async (req, res) => {
 
     // 4) messages[] = flexible system + optional snippets + history + current user
     const systemMsg = {
-  role: "system",
-  content: `
+      role: "system",
+      content: `
 You are a helpful, up-to-date assistant.
 
 Rules:
@@ -316,8 +314,7 @@ Rules:
    - If the question is big or multi-part, answer in detailed ChatGPT style.
 7) If you are uncertain, still answer but softly label it as an estimate — never refuse.
 `
-};
-
+    };
 
     const snippetsMsg = {
       role: 'system',
