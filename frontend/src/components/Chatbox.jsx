@@ -137,43 +137,42 @@ function Chatbox() {
     return () => unsub();
   }, [uid, activeChatId]);
 
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
+useEffect(() => {
+  const el = scrollRef.current;
+  if (!el) return;
 
-    const onGestureStart = () => {
-      if (!isStreaming && !atBottom(el)) {
-        setAutoScroll(false);
-        autoScrollRef.current = false;
-      }
-    };
+  const onGestureStart = () => {
+    // If user tries to interact and is NOT at bottom, stop following
+    if (!atBottom(el)) {
+      setAutoScroll(false);
+      autoScrollRef.current = false;
+    }
+  };
 
-    const onScroll = () => {
-      if (isStreaming) {
-        setAutoScroll(true);
-        autoScrollRef.current = true;
-        return;
-      }
-      const follow = atBottom(el);
-      setAutoScroll(follow);
-      autoScrollRef.current = follow;
-    };
+  const onScroll = () => {
+    // ALWAYS allow user to unpin even during streaming
+    const follow = atBottom(el);
+    setAutoScroll(follow);
+    autoScrollRef.current = follow;
+  };
 
-    el.addEventListener("mousedown", onGestureStart);
-    el.addEventListener("touchstart", onGestureStart, { passive: true });
-    el.addEventListener("wheel", onScroll, { passive: true });
-    el.addEventListener("scroll", onScroll, { passive: true });
-    el.addEventListener("touchmove", onScroll, { passive: true });
+  el.addEventListener("mousedown", onGestureStart);
+  el.addEventListener("touchstart", onGestureStart, { passive: true });
+  el.addEventListener("wheel", onScroll, { passive: true });
+  el.addEventListener("scroll", onScroll, { passive: true });
+  el.addEventListener("touchmove", onScroll, { passive: true });
 
-    onScroll();
-    return () => {
-      el.removeEventListener("mousedown", onGestureStart);
-      el.removeEventListener("touchstart", onGestureStart);
-      el.removeEventListener("wheel", onScroll);
-      el.removeEventListener("scroll", onScroll);
-      el.removeEventListener("touchmove", onScroll);
-    };
-  }, [isStreaming]);
+  onScroll(); // init
+
+  return () => {
+    el.removeEventListener("mousedown", onGestureStart);
+    el.removeEventListener("touchstart", onGestureStart);
+    el.removeEventListener("wheel", onScroll);
+    el.removeEventListener("scroll", onScroll);
+    el.removeEventListener("touchmove", onScroll);
+  };
+}, [isStreaming]);
+
 
   useLayoutEffect(() => {
     if (autoScrollRef.current) {
