@@ -137,42 +137,41 @@ function Chatbox() {
     return () => unsub();
   }, [uid, activeChatId]);
 
-useEffect(() => {
-  const el = scrollRef.current;
-  if (!el) return;
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
 
-  const onGestureStart = () => {
-    // If user tries to interact and is NOT at bottom, stop following
-    if (!atBottom(el)) {
-      setAutoScroll(false);
-      autoScrollRef.current = false;
-    }
-  };
+    const onGestureStart = () => {
+      // If user tries to interact and is NOT at bottom, stop following
+      if (!atBottom(el)) {
+        setAutoScroll(false);
+        autoScrollRef.current = false;
+      }
+    };
 
-  const onScroll = () => {
-    // ALWAYS allow user to unpin even during streaming
-    const follow = atBottom(el);
-    setAutoScroll(follow);
-    autoScrollRef.current = follow;
-  };
+    const onScroll = () => {
+      // ALWAYS allow user to unpin even during streaming
+      const follow = atBottom(el);
+      setAutoScroll(follow);
+      autoScrollRef.current = follow;
+    };
 
-  el.addEventListener("mousedown", onGestureStart);
-  el.addEventListener("touchstart", onGestureStart, { passive: true });
-  el.addEventListener("wheel", onScroll, { passive: true });
-  el.addEventListener("scroll", onScroll, { passive: true });
-  el.addEventListener("touchmove", onScroll, { passive: true });
+    el.addEventListener("mousedown", onGestureStart);
+    el.addEventListener("touchstart", onGestureStart, { passive: true });
+    el.addEventListener("wheel", onScroll, { passive: true });
+    el.addEventListener("scroll", onScroll, { passive: true });
+    el.addEventListener("touchmove", onScroll, { passive: true });
 
-  onScroll(); // init
+    onScroll(); // init
 
-  return () => {
-    el.removeEventListener("mousedown", onGestureStart);
-    el.removeEventListener("touchstart", onGestureStart);
-    el.removeEventListener("wheel", onScroll);
-    el.removeEventListener("scroll", onScroll);
-    el.removeEventListener("touchmove", onScroll);
-  };
-}, [isStreaming]);
-
+    return () => {
+      el.removeEventListener("mousedown", onGestureStart);
+      el.removeEventListener("touchstart", onGestureStart);
+      el.removeEventListener("wheel", onScroll);
+      el.removeEventListener("scroll", onScroll);
+      el.removeEventListener("touchmove", onScroll);
+    };
+  }, [isStreaming]);
 
   useLayoutEffect(() => {
     if (autoScrollRef.current) {
@@ -217,6 +216,15 @@ useEffect(() => {
     }
 
     const text = input.trim();
+    const lower = text.toLowerCase();
+
+    // ✅ Detect self-introduction / personal info messages (for ALL users)
+    const isSelfIntro =
+      /^(\s*)?(my name is|i am|i'm|call me|this is)\b/i.test(text) ||
+      /\b(i live in|i am from|i work as|i study|i like|i love|my hobby|my interest)\b/.test(
+        lower
+      );
+
     setInput("");
     setLoading(true);
 
@@ -255,6 +263,10 @@ useEffect(() => {
         ? res.data.sources
         : [];
 
+      // ✅ If it's a self-introduction / personal info message,
+      //    do not show any sources (for ANY user)
+      const finalSources = isSelfIntro ? [] : respSources;
+
       setIsStreaming(true);
       setStreamText("");
       const chunkSize = 4;
@@ -283,7 +295,7 @@ useEffect(() => {
         {
           role: "assistant",
           content: fullReply,
-          sources: respSources,
+          sources: finalSources,
           createdAt: serverTimestamp(),
         }
       );
@@ -304,7 +316,7 @@ useEffect(() => {
   };
 
   return (
-    // ✅ KEY FIX: fixed on mobile to escape parent max-width, normal on sm+
+    // fixed on mobile to escape parent max-width, normal on sm+
     <div className="fixed inset-0 sm:relative sm:inset-auto sm:h-screen sm:w-full
                     flex bg-zinc-950 text-white overflow-hidden">
       
@@ -375,7 +387,7 @@ useEffect(() => {
                   `}
                   onClick={() => {
                     setActiveChatId(c.id);
-                    setSidebarOpen(false); // ✅ closes sidebar on mobile after selecting chat
+                    setSidebarOpen(false);
                   }}
                   title={t}
                 >
